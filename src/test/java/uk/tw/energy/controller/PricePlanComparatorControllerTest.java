@@ -1,5 +1,6 @@
 package uk.tw.energy.controller;
 
+import org.assertj.core.data.Percentage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -108,6 +109,15 @@ public class PricePlanComparatorControllerTest {
         expectedPricePlanToCost.add(new AbstractMap.SimpleEntry<>(PRICE_PLAN_1_ID, BigDecimal.valueOf(140.0)));
 
         assertThat(controller.recommendCheapestPricePlans(SMART_METER_ID, 5).getBody()).isEqualTo(expectedPricePlanToCost);
+    }
+
+    @Test
+    public void getLastWeekCost() {
+        ElectricityReading electricityReading = new ElectricityReading(Instant.now().minusSeconds(3600 * 24 * 8), BigDecimal.valueOf(25.0));
+        ElectricityReading otherReading = new ElectricityReading(Instant.now().minusSeconds(3600 * 2), BigDecimal.valueOf(2));
+        ElectricityReading nowReading = new ElectricityReading(Instant.now(), BigDecimal.valueOf(2));
+        meterReadingService.storeReadings(SMART_METER_ID, Arrays.asList(electricityReading, otherReading,nowReading));
+        assertThat(controller.calculatedLastWeekCost(SMART_METER_ID).getBody()).isCloseTo(BigDecimal.valueOf(40.0),Percentage.withPercentage(1.0));
     }
 
     @Test

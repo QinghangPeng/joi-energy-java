@@ -1,6 +1,7 @@
 package uk.tw.energy.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -68,5 +69,17 @@ public class PricePlanComparatorController {
         }
 
         return ResponseEntity.ok(recommendations);
+    }
+
+    @GetMapping("/lastweek/cost/{smartMeterId}")
+    public ResponseEntity<BigDecimal> calculatedLastWeekCost(@PathVariable String smartMeterId) {
+        String pricePlanId = accountService.getPricePlanIdForSmartMeterId(smartMeterId);
+        if (StringUtils.isEmpty(pricePlanId) ) {
+            return ResponseEntity.notFound().build();
+        }
+        //拉取上周的用电list并计算
+        Optional<BigDecimal> usages;
+        usages = pricePlanService.getLastWeekCostBySmartMeterIdAndPricePlanId(smartMeterId, pricePlanId);
+        return usages.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

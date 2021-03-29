@@ -7,6 +7,7 @@ import uk.tw.energy.domain.PricePlan;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -35,11 +36,22 @@ public class PricePlanService {
                 Collectors.toMap(PricePlan::getPlanName, t -> calculateCost(electricityReadings.get(), t))));
     }
 
+
+
+    /**
+     *  1. 计算平均读数  读数add / size
+     *  2. 时间间隔  最大时间 - 最小时间
+     *  3. kwh averageReading * timeDuring
+     *  4. cost = kwh * unitPrice
+     * @param electricityReadings
+     * @param pricePlan
+     * @return
+     */
     private BigDecimal calculateCost(List<ElectricityReading> electricityReadings, PricePlan pricePlan) {
         BigDecimal average = calculateAverageReading(electricityReadings);
         BigDecimal timeElapsed = calculateTimeElapsed(electricityReadings);
 
-        BigDecimal averagedCost = average.divide(timeElapsed, RoundingMode.HALF_UP);
+        BigDecimal averagedCost = average.multiply(timeElapsed);
         return averagedCost.multiply(pricePlan.getUnitRate());
     }
 
@@ -62,4 +74,17 @@ public class PricePlanService {
         return BigDecimal.valueOf(Duration.between(first.getTime(), last.getTime()).getSeconds() / 3600.0);
     }
 
+    public Optional<BigDecimal> getLastWeekCostBySmartMeterIdAndPricePlanId(String smartMeterId, String pricePlanId) {
+        Instant lastWeekFirstDay = Instant.now().minusSeconds(60 * 60 * 24 * 7);
+        Optional<List<ElectricityReading>> electricityReadings = meterReadingService.getReadings(smartMeterId);
+
+        if (!electricityReadings.isPresent()) {
+            return Optional.empty();
+        }
+
+        //筛选时间段内的数据
+        List<ElectricityReading> lastWeekReadings = electricityReadings.get().stream().filter(x -> x.getTime().isAfter(lastWeekFirstDay)).collect(Collectors.toList());
+        BigDecimal lastWeekCost = calculateCost(lastWeekReadings, pricePlans.stream().filter(x -> x.getPlanName().equals(pricePlanId)).findFirst().get());
+        return Optional.of(lastWeekCost);
+    }
 }
